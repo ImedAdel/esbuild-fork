@@ -1,6 +1,7 @@
 {
   "private": true,
   "devDependencies": {
+    "esbuild": "^0.6.17",
     "fuse-box": "4.0.0-next.435",
     "parcel": "1.12.4",
     "rollup": "2.10.9",

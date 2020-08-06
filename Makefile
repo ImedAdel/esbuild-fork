@@ -381,10 +381,28 @@ bench/three: | github/three
 
 ################################################################################
 
-THREE_ROLLUP_CONFIG += import { terser } from 'rollup-plugin-terser';
+THREE_ROLLUP_CONFIG += import { startService } from 'esbuild';
 THREE_ROLLUP_CONFIG += export default {
 THREE_ROLLUP_CONFIG +=   output: { format: 'iife', name: 'THREE', sourcemap: true },
-THREE_ROLLUP_CONFIG +=   plugins: [terser()],
+THREE_ROLLUP_CONFIG +=   plugins: [{
+THREE_ROLLUP_CONFIG +=	name: 'esbuild',
+THREE_ROLLUP_CONFIG +=	async renderChunk(code, chunk) {
+THREE_ROLLUP_CONFIG +=		return (async (src, request) => {
+THREE_ROLLUP_CONFIG +=			const service = await startService();
+THREE_ROLLUP_CONFIG +=			try {
+THREE_ROLLUP_CONFIG +=				const result = await service.transform(src, { target: 'es2020', sourcefile: request, minify: true, sourcemap: true });
+THREE_ROLLUP_CONFIG +=				service.stop();
+THREE_ROLLUP_CONFIG +=				return { code: result.js, map: result.jsSourceMap };
+THREE_ROLLUP_CONFIG +=			} catch (err) {
+THREE_ROLLUP_CONFIG +=				service.stop();
+THREE_ROLLUP_CONFIG +=				return {
+THREE_ROLLUP_CONFIG +=					code: '',
+THREE_ROLLUP_CONFIG +=					map: undefined
+THREE_ROLLUP_CONFIG +=				};
+THREE_ROLLUP_CONFIG +=			}
+THREE_ROLLUP_CONFIG +=		})();
+THREE_ROLLUP_CONFIG +=	}
+THREE_ROLLUP_CONFIG += }],
 THREE_ROLLUP_CONFIG += }
 
 THREE_WEBPACK_FLAGS += --devtool=sourcemap
