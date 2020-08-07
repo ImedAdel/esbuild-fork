@@ -381,29 +381,42 @@ bench/three: | github/three
 
 ################################################################################
 
-THREE_ROLLUP_CONFIG += import { startService } from 'esbuild';
-THREE_ROLLUP_CONFIG += export default {
-THREE_ROLLUP_CONFIG +=   output: { format: 'iife', name: 'THREE', sourcemap: true },
-THREE_ROLLUP_CONFIG +=   plugins: [{
-THREE_ROLLUP_CONFIG +=	name: 'esbuild',
-THREE_ROLLUP_CONFIG +=	async renderChunk(code, chunk) {
-THREE_ROLLUP_CONFIG +=		return (async (src, request) => {
-THREE_ROLLUP_CONFIG +=			const service = await startService();
-THREE_ROLLUP_CONFIG +=			try {
-THREE_ROLLUP_CONFIG +=				const result = await service.transform(src, { target: 'es2020', sourcefile: request, minify: true, sourcemap: true });
-THREE_ROLLUP_CONFIG +=				service.stop();
-THREE_ROLLUP_CONFIG +=				return { code: result.js, map: result.jsSourceMap };
-THREE_ROLLUP_CONFIG +=			} catch (err) {
-THREE_ROLLUP_CONFIG +=				service.stop();
-THREE_ROLLUP_CONFIG +=				return {
-THREE_ROLLUP_CONFIG +=					code: '',
-THREE_ROLLUP_CONFIG +=					map: undefined
-THREE_ROLLUP_CONFIG +=				};
-THREE_ROLLUP_CONFIG +=			}
-THREE_ROLLUP_CONFIG +=		})();
-THREE_ROLLUP_CONFIG +=	}
-THREE_ROLLUP_CONFIG += }],
-THREE_ROLLUP_CONFIG += }
+THREE_ROLLUP_CONFIG += import { startService } from 'esbuild'; let service; export default { output: { format: 'iife', name: 'THREE', sourcemap: true }, plugins: [{ name: 'esbuild', async buildStart() { if (!service) { service = await startService() } }, async renderChunk(code, chunk) { if(service) { const result = await service.transform(code, { target: 'es2020', sourcefile: chunk, minify: true, sourcemap: true }); return { code: result.js, map: result.jsSourceMap }; } return { code: '', map: undefined }; }, generateBundle() { if (service) { service.stop(); service = undefined } }, }], }
+
+THREE_ROLLUP_CONFIG_TERSER += import { terser } from 'rollup-plugin-terser';
+THREE_ROLLUP_CONFIG_TERSER += export default {
+THREE_ROLLUP_CONFIG_TERSER +=   output: { format: 'iife', name: 'THREE', sourcemap: true },
+THREE_ROLLUP_CONFIG_TERSER +=   plugins: [terser()],
+THREE_ROLLUP_CONFIG_TERSER += }
+# THREE_ROLLUP_CONFIG += import { startService } from 'esbuild';
+# THREE_ROLLUP_CONFIG += let service;
+# THREE_ROLLUP_CONFIG += export default {
+# THREE_ROLLUP_CONFIG +=   output: { format: 'iife', name: 'THREE', sourcemap: true },
+# THREE_ROLLUP_CONFIG +=   plugins: [{
+# THREE_ROLLUP_CONFIG +=	name: 'esbuild',
+# THREE_ROLLUP_CONFIG += async buildStart() {
+# THREE_ROLLUP_CONFIG +=       if (!service) {
+# THREE_ROLLUP_CONFIG +=         service = await startService()
+# THREE_ROLLUP_CONFIG +=       }
+# THREE_ROLLUP_CONFIG +=     },
+# THREE_ROLLUP_CONFIG +=	async renderChunk(code, chunk) {
+# THREE_ROLLUP_CONFIG +=			if(service) {
+# THREE_ROLLUP_CONFIG +=				const result = await service.transform(code, { target: 'es2020', sourcefile: request, minify: true, sourcemap: true });
+# THREE_ROLLUP_CONFIG +=				return { code: result.js, map: result.jsSourceMap };
+# THREE_ROLLUP_CONFIG +=			}
+# THREE_ROLLUP_CONFIG +=				return {
+# THREE_ROLLUP_CONFIG +=					code: '',
+# THREE_ROLLUP_CONFIG +=					map: undefined
+# THREE_ROLLUP_CONFIG +=				};
+# THREE_ROLLUP_CONFIG +=	},
+# THREE_ROLLUP_CONFIG += generateBundle() {
+# THREE_ROLLUP_CONFIG +=       if (service) {
+# THREE_ROLLUP_CONFIG +=       service.stop()
+# THREE_ROLLUP_CONFIG +=       service = undefined
+# THREE_ROLLUP_CONFIG +=     }
+# THREE_ROLLUP_CONFIG +=     },
+# THREE_ROLLUP_CONFIG += }],
+# THREE_ROLLUP_CONFIG += }
 
 THREE_WEBPACK_FLAGS += --devtool=sourcemap
 THREE_WEBPACK_FLAGS += --mode=production
@@ -469,7 +482,7 @@ demo-three-fusebox: | node_modules demo/three
 
 ################################################################################
 
-bench-three: bench-three-esbuild bench-three-rollup bench-three-webpack bench-three-parcel bench-three-fusebox
+bench-three: bench-three-esbuild bench-three-rollup bench-three-rollup-terser bench-three-webpack bench-three-parcel bench-three-fusebox
 
 bench-three-esbuild: esbuild | bench/three
 	rm -fr bench/three/esbuild
@@ -482,6 +495,13 @@ bench-three-rollup: | node_modules bench/three
 	rm -fr bench/three/rollup
 	mkdir -p bench/three/rollup
 	echo "$(THREE_ROLLUP_CONFIG)" > bench/three/rollup/config.js
+	cd bench/three/rollup && time -p ../../../node_modules/.bin/rollup ../entry.js -o entry.rollup.js -c config.js
+	du -h bench/three/rollup/entry.rollup.js*
+
+bench-three-rollup-terser: | node_modules bench/three
+	rm -fr bench/three/rollup
+	mkdir -p bench/three/rollup
+	echo "$(THREE_ROLLUP_CONFIG_TERSER)" > bench/three/rollup/config.js
 	cd bench/three/rollup && time -p ../../../node_modules/.bin/rollup ../entry.js -o entry.rollup.js -c config.js
 	du -h bench/three/rollup/entry.rollup.js*
 
